@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול חשבוניות א.א שיווק</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="confirmModalTitle">אישור פעולה</h2>
+                <button class="modal-close-btn" onclick="hideModal(confirmModal)">×</button>
+            </div>
+            <p id="confirmModalMessage">האם אתה בטוח שברצונך לבצע פעולה זו?</p>
+            <div class="button-group">
+                <button id="cancelConfirmBtn" class="button-secondary">ביטול</button>
+                <button id="confirmActionBtn" class="button-primary">אישור</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>א.א שיווק</h1>
+            <p class="user-id-display" id="userIdDisplay"></p>
+        </div>
+        <nav class="sidebar-nav">
+            <ul>
+                <li><button data-page="dashboardPage" class="active"><i class="fas fa-chart-line"></i> דאשבורד</button></li>
+                <li><button data-page="invoicesPage"><i class="fas fa-file-invoice"></i> חשבוניות</button></li>
+                <li><button data-page="clientsPage"><i class="fas fa-users"></i> לקוחות</button></li>
+                <li><button data-page="checksPage"><i class="fas fa-money-check-alt"></i> צ'קים</button></li>
+                <li><button data-page="alertsPage" id="navAlertsBtn"><i class="fas fa-bell"></i> התראות <span id="alertCountBadge" class="alert-count-badge hidden">0</span></button></li>
+                <li><button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> יציאה</button></li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <p>&copy; 2024 א.א שיווק</p>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="global-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="globalSearchInput" placeholder="חיפוש מהיר...">
+        </div>
+
+        <div id="dashboardPage" class="content-page active">
+            <div class="page-header">
+                <h2>דאשבורד</h2>
+                <button id="addInvoiceDashboardBtn" class="button-primary">
+                    <i class="fas fa-plus"></i> הוסף חשבונית חדשה
+                </button>
+            </div>
+            <div class="dashboard-grid">
+                <div class="dashboard-card total-invoices" data-target-page="invoicesPage" data-filter="all">
+                    <h3>סה"כ חשבוניות</h3>
+                    <p id="totalInvoicesEl">0</p>
+                </div>
+                <div class="dashboard-card outstanding-invoices" data-target-page="invoicesPage" data-filter="unpaid">
+                    <h3>חובות פתוחים</h3>
+                    <p id="totalOutstandingEl">0 ₪</p>
+                </div>
+                <div class="dashboard-card paid-invoices" data-target-page="invoicesPage" data-filter="paid">
+                    <h3>סה"כ שולם</h3>
+                    <p id="totalPaidEl">0 ₪</p>
+                </div>
+                <div class="dashboard-card this-month-payments" data-target-page="invoicesPage" data-filter="thisMonthPaid">
+                    <h3>תשלומים החודש</h3>
+                    <p id="paymentsThisMonthEl">0 ₪</p>
+                </div>
+                <div class="dashboard-card open-invoices" data-target-page="invoicesPage" data-filter="open">
+                    <h3>חשבוניות פתוחות</h3>
+                    <p id="openInvoicesCountEl">0</p>
+                </div>
+                <div class="dashboard-card open-checks" data-target-page="checksPage" data-filter="open">
+                    <h3>צ'קים פתוחים</h3>
+                    <p id="openChecksCountEl">0</p>
+                </div>
+                <div class="dashboard-card total-clients" data-target-page="clientsPage" data-filter="all">
+                    <h3>סה"כ לקוחות</h3>
+                    <p id="totalClientsEl">0</p>
+                </div>
+                <div class="dashboard-card active-clients" data-target-page="clientsPage" data-filter="active">
+                    <h3>לקוחות פעילים</h3>
+                    <p id="activeClientsCountEl">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="invoicesPage" class="content-page">
+            <div class="page-header">
+                <h2>חשבוניות</h2>
+                <div class="button-group">
+                    <button id="exportCsvBtn" class="button-export"><i class="fas fa-file-csv"></i> יצא ל-CSV</button>
+                    <button id="addInvoiceBtn" class="button-primary"><i class="fas fa-plus"></i> הוסף חשבונית</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th data-sort-by="invoiceId">מס' חשבונית <span class="sort-icon"></span></th>
+                            <th data-sort-by="clientName">לקוח <span class="sort-icon"></span></th>
+                            <th data-sort-by="amount">סכום <span class="sort-icon"></span></th>
+                            <th data-sort-by="invoiceDate">תאריך חשבונית <span class="sort-icon"></span></th>
+                            <th data-sort-by="dueDate">תאריך יעד <span class="sort-icon"></span></th>
+                            <th data-sort-by="status">סטטוס <span class="sort-icon"></span></th>
+                            <th data-sort-by="paymentMethod">אופן תשלום <span class="sort-icon"></span></th>
+                            <th>פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoiceTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button id="prevPageBtn">הקודם</button>
+                <span>עמוד <span id="currentPageSpan">1</span> מתוך <span id="totalPagesSpan">1</span></span>
+                <button id="nextPageBtn">הבא</button>
+            </div>
+        </div>
+
+        <div id="invoiceModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="invoiceModalTitle">הוסף חשבונית חדשה</h2>
+                    <button class="modal-close-btn" onclick="hideModal(invoiceModal)">×</button>
+                </div>
+                <form id="invoiceForm">
+                    <input type="hidden" id="invoiceDocIdInput">
+                    <div class="form-group">
+                        <label for="invoiceIdInput">מספר חשבונית:</label>
+                        <input type="text" id="invoiceIdInput" class="form-input" required>
+                        <div id="invoiceIdError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="clientInput">לקוח:</label>
+                        <input type="text" id="clientInput" class="form-input" placeholder="הקלד שם לקוח" required autocomplete="off">
+                        <div id="clientSuggestionsDiv" class="suggestions-box"></div>
+                        <div id="clientError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="amountInput">סכום:</label>
+                        <input type="number" id="amountInput" class="form-input" step="0.01" required>
+                        <div id="amountError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="invoiceDateInput">תאריך חשבונית:</label>
+                        <input type="date" id="invoiceDateInput" class="form-input" required>
+                        <div id="invoiceDateError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="termsSelect">תנאי תשלום:</label>
+                        <select id="termsSelect" class="form-select" required>
+                            <option value="">בחר תנאים</option>
+                            <option value="שוטף">שוטף</option>
+                            <option value="שוטף+30">שוטף + 30</option>
+                            <option value="שוטף+60">שוטף + 60</option>
+                            <option value="מזומן">מזומן</option>
+                            <option value="צ'קים">צ'קים</option>
+                        </select>
+                        <div id="termsError" class="error-message"></div>
+                        <div id="termsWarning" class="terms-warning hidden"></div>
+                    </div>
+                    <div class="form-group" id="dueDateGroup">
+                        <label for="dueDateInput">תאריך יעד:</label>
+                        <input type="date" id="dueDateInput" class="form-input" required>
+                        <div id="dueDateError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="statusSelect">סטטוס:</label>
+                        <select id="statusSelect" class="form-select" required>
+                            <option value="">בחר סטטוס</option>
+                            <option value="שולם">שולם</option>
+                            <option value="פתוח">פתוח</option>
+                            <option value="בפיגור">בפיגור</option>
+                        </select>
+                        <div id="statusError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentMethodSelect">אופן תשלום:</label>
+                        <select id="paymentMethodSelect" class="form-select" required>
+                            <option value="">בחר אופן תשלום</option>
+                            <option value="מזומן">מזומן</option>
+                            <option value="העברה בנקאית">העברה בנקאית</option>
+                            <option value="צ'קים">צ'קים</option>
+                            <option value="אשראי">אשראי</option>
+                        </select>
+                        <div id="paymentMethodError" class="error-message"></div>
+                    </div>
+
+                    <div id="checksGroup" class="check-inputs-container hidden">
+                        <label>פרטי צ'קים:</label>
+                        <div id="checkInputsContainer">
+                            </div>
+                        <button type="button" id="addCheckBtn" class="button-info"><i class="fas fa-plus"></i> הוסף צ'ק</button>
+                        <div id="checksError" class="error-message"></div>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="button" id="cancelInvoiceBtn" class="button-secondary">ביטול</button>
+                        <button type="submit" id="saveInvoiceBtn" class="button-primary">שמור חשבונית</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="viewInvoiceModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="viewInvoiceModalTitle">צפייה בחשבונית</h2>
+                    <button class="modal-close-btn" onclick="hideModal(viewInvoiceModal)">×</button>
+                </div>
+                <div id="viewInvoiceDetails">
+                    </div>
+                <div class="button-group">
+                    <button id="printInvoiceBtn" class="button-info"><i class="fas fa-print"></i> הדפס</button>
+                    <button id="editInvoiceBtn" class="button-info"><i class="fas fa-edit"></i> ערוך</button>
+                    <button id="deleteInvoiceBtn" class="button-danger"><i class="fas fa-trash"></i> מחק</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="clientsPage" class="content-page">
+            <div class="page-header">
+                <h2>לקוחות</h2>
+                <div class="button-group">
+                    <button id="exportClientsCsvBtn" class="button-export"><i class="fas fa-file-csv"></i> יצא ל-CSV</button>
+                    <button id="addClientBtnClientPage" class="button-primary"><i class="fas fa-user-plus"></i> הוסף לקוח</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th data-sort-by="name">שם לקוח <span class="sort-icon"></span></th>
+                            <th data-sort-by="contactPerson">איש קשר <span class="sort-icon"></span></th>
+                            <th data-sort-by="email">אימייל <span class="sort-icon"></span></th>
+                            <th data-sort-by="phone">טלפון <span class="sort-icon"></span></th>
+                            <th data-sort-by="totalInvoicesCount">סה"כ חשבוניות <span class="sort-icon"></span></th>
+                            <th data-sort-by="totalOutstandingAmount">חוב פתוח <span class="sort-icon"></span></th>
+                            <th>פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientTableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="clientDetailsModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="clientDetailsModalTitle">פרטי לקוח</h2>
+                    <button class="modal-close-btn" onclick="hideModal(clientDetailsModal)">×</button>
+                </div>
+                <form id="clientDetailsForm">
+                    <input type="hidden" id="clientDetailsDocIdInput">
+                    <div class="form-group">
+                        <label for="clientDetailsNameInput">שם לקוח:</label>
+                        <input type="text" id="clientDetailsNameInput" class="form-input" required>
+                        <div id="clientDetailsNameError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="clientDetailsContactPersonInput">איש קשר:</label>
+                        <input type="text" id="clientDetailsContactPersonInput" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientDetailsEmailInput">אימייל:</label>
+                        <input type="email" id="clientDetailsEmailInput" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientDetailsPhoneInput">טלפון:</label>
+                        <input type="tel" id="clientDetailsPhoneInput" class="form-input">
+                    </div>
+                    <div class="client-details-section">
+                        <h3>חשבוניות קשורות</h3>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>מס' חשבונית</th>
+                                        <th>סכום</th>
+                                        <th>תאריך יעד</th>
+                                        <th>סטטוס</th>
+                                        <th>פעולות</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientRelatedInvoicesTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="client-details-section">
+                        <h3>צ'קים קשורים</h3>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>מס' צ'ק</th>
+                                        <th>סכום</th>
+                                        <th>תאריך פירעון</th>
+                                        <th>סטטוס</th>
+                                        <th>פעולות</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientRelatedChecksTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="button-group">
+                        <button type="button" id="cancelClientDetailsBtn" class="button-secondary">ביטול</button>
+                        <button type="submit" id="saveClientDetailsBtn" class="button-primary">שמור פרטים</button>
+                        <button type="button" id="deleteClientBtn" class="button-danger">מחק לקוח</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="checksPage" class="content-page">
+            <div class="page-header">
+                <h2>צ'קים</h2>
+                <div class="button-group">
+                    <button id="exportChecksCsvBtn" class="button-export"><i class="fas fa-file-csv"></i> יצא ל-CSV</button>
+                    <button id="addStandaloneCheckBtn" class="button-primary"><i class="fas fa-plus"></i> הוסף צ'ק עצמאי</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th data-sort-by="checkNumber">מס' צ'ק <span class="sort-icon"></span></th>
+                            <th data-sort-by="clientName">לקוח <span class="sort-icon"></span></th>
+                            <th data-sort-by="amount">סכום <span class="sort-icon"></span></th>
+                            <th data-sort-by="date">תאריך פירעון <span class="sort-icon"></span></th>
+                            <th data-sort-by="status">סטטוס <span class="sort-icon"></span></th>
+                            <th>פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="checksTableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="addEditCheckModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="addEditCheckModalTitle">הוסף צ'ק עצמאי</h2>
+                    <button class="modal-close-btn" onclick="hideModal(addEditCheckModal)">×</button>
+                </div>
+                <form id="standaloneCheckForm">
+                    <input type="hidden" id="standaloneCheckDocIdInput">
+                    <div class="form-group">
+                        <label for="standaloneCheckNumberInput">מספר צ'ק:</label>
+                        <input type="text" id="standaloneCheckNumberInput" class="form-input" required>
+                        <div id="standaloneCheckNumberError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="standaloneCheckClientInput">לקוח:</label>
+                        <input type="text" id="standaloneCheckClientInput" class="form-input" placeholder="הקלד שם לקוח" required autocomplete="off">
+                        <div id="standaloneClientSuggestionsDiv" class="suggestions-box"></div>
+                        <div id="standaloneCheckClientError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="standaloneCheckAmountInput">סכום:</label>
+                        <input type="number" id="standaloneCheckAmountInput" class="form-input" step="0.01" required>
+                        <div id="standaloneCheckAmountError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="standaloneCheckDateInput">תאריך פירעון:</label>
+                        <input type="date" id="standaloneCheckDateInput" class="form-input" required>
+                        <div id="standaloneCheckDateError" class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="standaloneCheckStatusSelect">סטטוס:</label>
+                        <select id="standaloneCheckStatusSelect" class="form-select" required>
+                            <option value="">בחר סטטוס</option>
+                            <option value="פתוח">פתוח</option>
+                            <option value="נפרע">נפרע</option>
+                            <option value="הופקד">הופקד</option>
+                            <option value="חוזר">חוזר</option>
+                            <option value="בוטל">בוטל</option>
+                        </select>
+                        <div id="standaloneCheckStatusError" class="error-message"></div>
+                    </div>
+                    <div class="button-group">
+                        <button type="button" id="cancelStandaloneCheckBtn" class="button-secondary">ביטול</button>
+                        <button type="submit" id="saveStandaloneCheckBtn" class="button-primary">שמור צ'ק</button>
+                        <button type="button" id="deleteStandaloneCheckBtn" class="button-danger">מחק צ'ק</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="alertsPage" class="content-page">
+            <div class="page-header">
+                <h2>התראות</h2>
+                <button id="requestNotificationPermissionBtn" class="button-info"><i class="fas fa-bell"></i> בקש הרשאת התראות</button>
+            </div>
+
+            <div class="alerts-section overdue-alerts">
+                <h3>חשבוניות בפיגור (<span id="overdueCount">0</span>)</h3>
+                <ul id="overdueInvoicesList">
+                    </ul>
+            </div>
+
+            <div class="alerts-section due-today-alerts">
+                <h3>חשבוניות לתשלום היום (<span id="dueTodayCount">0</span>)</h3>
+                <ul id="invoicesDueTodayList">
+                    </ul>
+            </div>
+
+            <div class="alerts-section due-soon-alerts">
+                <h3>חשבוניות לתשלום בקרוב (<span id="dueSoonCount">0</span>)</h3>
+                <ul id="invoicesDueSoonList">
+                    </ul>
+            </div>
+
+            <div class="alerts-section due-today-alerts">
+                <h3>צ'קים לפירעון היום (<span id="checksDueTodayCount">0</span>)</h3>
+                <ul id="checksDueTodayList">
+                    </ul>
+            </div>
+
+            <div class="alerts-section due-soon-alerts">
+                <h3>צ'קים לפירעון בקרוב (<span id="checksDueSoonCount">0</span>)</h3>
+                <ul id="checksDueSoonList">
+                    </ul>
+            </div>
+
+            <div class="alerts-section inactive-clients">
+                <h3>לקוחות לא פעילים (<span id="inactiveClientsCount">0</span>)</h3>
+                <ul id="inactiveClientsList">
+                    </ul>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
